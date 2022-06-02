@@ -1,0 +1,178 @@
+---
+title: "Analysis-Predit Churning Bank Customers"
+author: "Anjana Molugu"
+date: "03/01/2021"
+output:
+   html_document:
+    code_folding: hide
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+```{r,echo=F, results='hide', message=F, warning=F}
+library(dplyr,warn.conflicts=F, quietly=T)
+library(plotly,warn.conflicts=F, quietly=T)
+library(ggplot2,warn.conflicts=F, quietly=T)
+library(gridExtra,warn.conflicts=F, quietly=T)
+library(plotrix,warn.conflicts=F, quietly=T)
+library(tidyverse,warn.conflicts=F, quietly=T)
+library(sampling,warn.conflicts=F, quietly=T)
+```
+
+ 
+
+```{r echo=F, results='hide', message=F, warning=F}
+creditData <- read.csv("BankChurners.csv" )
+
+## Removing two columns which are output of a Classifier
+
+creditData = creditData %>% 
+                select(-c(Naive_Bayes_Classifier_Attrition_Flag_Card_Category_Contacts_Count_12_mon_Dependent_count_Education_Level_Months_Inactive_12_mon_1
+                          ,Naive_Bayes_Classifier_Attrition_Flag_Card_Category_Contacts_Count_12_mon_Dependent_count_Education_Level_Months_Inactive_12_mon_2))
+
+## Listing all the Categorical Variables and removing few categories 
+unique(creditData$Marital_Status)
+### filtering Marital Status 'Unknown'
+creditData=creditData[creditData$Marital_Status!='Unknown',]
+```
+
+
+```{r}
+
+creditData <-creditData %>% drop_na()
+
+ data(creditData)
+ names(creditData)
+names(sort(table(creditData$Marital_Status), decreasing = TRUE  ) [1:3]) ->martialStatusTop5
+
+martialStatusData <- subset(creditData, Marital_Status %in% martialStatusTop5)
+
+set.seed(1206)
+
+
+
+n <- 50
+N <- nrow(martialStatusData) 
+```
+
+
+### Simple random sampling without replacement for 10 samples
+
+
+```{r}
+s <- srswor(50, nrow(creditData))
+sample.1 <- creditData[s != 0, ]
+table(sample.1$Credit_Limit)
+
+ srswor1 <- plot_ly(as.data.frame(sample.1$Credit_Limit ), x = ~sample.1$Credit_Limit) %>%
+  add_histogram(name = "srswor") 
+ mean(sample.1$Credit_Limit)
+
+ 
+ 
+ 
+```
+
+
+### Systematic sampling
+
+```{r}
+k <- ceiling(N / n)
+
+
+r <- sample(k, 1)
+
+# select every kth item
+s <- seq(r, by = k, length = n)
+sample.2 <- creditData[s, ]
+
+
+
+ sys <- plot_ly(as.data.frame(sample.2$Credit_Limit), x = ~sample.2$Credit_Limit) %>%
+  add_histogram(name = "Systematic Sampling") 
+mean(sample.2$Credit_Limit)
+
+```
+
+### Inclusion Probabilities
+
+For unequal probabilities, the inclusionprobabilities function computes the probability for each item to be included in the sample with probabilities proportional to the size.
+
+```{r}
+
+pik <- inclusionprobabilities(martialStatusData$Credit_Limit,50)
+
+sumPik3 <- sum(pik)
+s <- UPsystematic(pik)
+sample.3 <- martialStatusData[s!=0,]
+table3 <-table(sample.3$Credit_Limit)
+#Percentage of respective Department
+Percentage <- (table(sample.3$Credit_Limit)/50)*100
+ ip <- plot_ly(as.data.frame(sample.3$Credit_Limit), x = ~sample.3$Credit_Limit) %>%
+  add_histogram(name = "Inclusion Probabilities") 
+ mean(sample.3$Credit_Limit)
+ 
+```
+
+### Stratified sampling
+
+In stratifies sampling, the items from the frame are subdivided into separate N subgroups based on some common characteristic, e.g., gender, race, year of school, etc. The subgroups are known as strata
+
+```{r}
+order.index <- order(martialStatusData$Marital_Status)
+data <- martialStatusData[order.index, ]  
+
+freq <- table( martialStatusData$Marital_Status)
+sizes <- round(50 * freq / sum(freq))
+
+sum(sizes)
+st_Martial_status <-  strata(data, stratanames = c("Marital_Status"),
+                         size = sizes, method = "srswor")
+
+sample.4 <-getdata(data,st_Martial_status)
+table4 <-table(sample.4$Education_Level)
+#Percentage of respective Department
+Percentage <- (table(sample.4$Education_Level)/50)*100
+
+ ss <- plot_ly(as.data.frame(sample.4$Credit_Limit), x = ~sample.4$Credit_Limit) %>%
+  add_histogram(name = "Stratified sampling") 
+ mean(sample.4$Credit_Limit)
+ 
+ subplot(srswor1, sys, ip,  ss,
+  nrows = 4, shareX = TRUE
+  
+)
+
+
+
+```
+
+```{r}
+   cat("Population sample mean       : ", mean(creditData$Credit_Limit) ,
+  "\nSimple random  mean    : ",    mean(sample.1$Credit_Limit),
+  "\nSystematic sampling mean          : ", mean(sample.2$Credit_Limit),
+  "\nInclusion Probabilities mean : ", mean(sample.3$Credit_Limit),
+  "\nStratified sampling mean     : ", mean(sample.4$Credit_Limit))
+
+```
+
+
+## Conclusion
+The dataset is imbalanced with 84:16 ratio of existing and attired customers
+ 
+  •	There are more samples of females in dataset compared to males but the percentage of difference is not that significant so we can say that genders are uniformly distributed.
+  
+  •	If assuming that most of the customers with unknown education status lack any sort of education, we can state that more than 70% of the customers have a formal education level of         which about 35% have a higher level of education.
+  
+  •	Almost half of the customers of the bank is married and almost the entire other half are customers who are single. Only about 7% of the customers are divorced.
+
+
+

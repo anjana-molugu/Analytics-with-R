@@ -1,0 +1,468 @@
+---
+title: "Analysis-Predit Churning Bank Customers"
+author: "Anjana Molugu"
+date: "03/01/2021"
+output:
+   html_document:
+    code_folding: hide
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Dataset Details
+
+"Credit Card Customers -- Predict churning customers" . A business manager of a consumer credit card portfolio is facing the problem of customer attrition. As the number of customers leaving the credit card services at a bank are increasing with time, I tried to predict which customers are going to get churned so that the bank can provide better services to the customers to decrease the number of customer churns. The aim of the project is to analyze the data to find out the reason behind the churn and leverage the same to predict customers who are likely to drop off.
+
+This dataset contains nearly 10,000 customers mentioning their age, salary, marital status, credit card limit, credit card category, etc
+
+
+```{r,echo=F, results='hide', message=F, warning=F}
+library(dplyr,warn.conflicts=F, quietly=T)
+library(plotly,warn.conflicts=F, quietly=T)
+library(ggplot2,warn.conflicts=F, quietly=T)
+library(gridExtra,warn.conflicts=F, quietly=T)
+library(plotrix,warn.conflicts=F, quietly=T)
+library(tidyverse,warn.conflicts=F, quietly=T)
+library(sampling,warn.conflicts=F, quietly=T)
+```
+
+## Loading the Data Tz
+
+Data is loaded from the csv file. Checked for any missing values in the data frame. If there are any missing values, they can be handled by either dropping or replacing them for simplicity and performance reasons.  
+
+```{r echo=F, results='hide', message=F, warning=F}
+creditData <- read.csv("BankChurners.csv" )
+
+## Removing two columns which are output of a Classifier
+
+creditData = creditData %>% 
+                select(-c(Naive_Bayes_Classifier_Attrition_Flag_Card_Category_Contacts_Count_12_mon_Dependent_count_Education_Level_Months_Inactive_12_mon_1
+                          ,Naive_Bayes_Classifier_Attrition_Flag_Card_Category_Contacts_Count_12_mon_Dependent_count_Education_Level_Months_Inactive_12_mon_2))
+
+## Listing all the Categorical Variables and removing few categories 
+unique(creditData$Marital_Status)
+### filtering Marital Status 'Unknown'
+creditData=creditData[creditData$Marital_Status!='Unknown',]
+```
+
+## Existing Customers vs Churn Customers 
+
+
+```{r}
+slices <-table( c(creditData$Attrition_Flag))
+lbls <- c("Churn Customers","Existing  Customers")
+
+pie3D(slices, labels = lbls, explode=0.1, radius=.9, labelcex = 1,  start=0.5)
+creditData %>% count(Attrition_Flag) %>% mutate(per= paste0(round(prop.table(n) * 100,2),"%"))
+```
+
+The percentage of Existing customers is more than the Churn customers. There are approximately 84% of Existing customers and 16% of Churn customers.  
+
+## Plots for Categorical values against Attrition 
+
+All the plots are plotted with Attired_flag as the target variable 
+
+
+```{r}
+AVsMS <-ggplot(creditData, aes(x=Attrition_Flag, fill=(Marital_Status) )) + 
+  geom_bar(position="dodge")  +
+  geom_text(aes(y = (..count..)/sum(..count..), 
+              label = paste0(round(prop.table(..count..) * 100,2), '%'),
+             angle=45), 
+          stat = 'count', 
+          position = position_dodge(.9), 
+          size = 2,
+         vjust=-2)+
+  scale_fill_hue(c = 40) +
+  ggtitle('Distribution of Attrition and Marital Status')+
+ theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black", size=0.5))+
+ theme(legend.title = element_text(size = 7), 
+               legend.text = element_text(size = 7))  
+
+ 
+AVsG <-ggplot(creditData, aes(x=Attrition_Flag, fill=(Gender) )) + 
+    geom_bar(position="dodge")+ 
+   geom_text(aes(y = (..count..)/sum(..count..), 
+              label = paste0(round(prop.table(..count..) * 100,2), '%'),
+             angle=45), 
+          stat = 'count', 
+          position = position_dodge(.9), 
+          size = 2,
+         vjust=-2)+
+  scale_fill_hue(c = 40) +
+  ggtitle('Distribution of Attrition and Gender')+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black", size=0.5))+
+  theme(legend.title = element_text(size = 7), 
+               legend.text = element_text(size = 7))
+
+ grid.arrange(AVsMS, AVsG,nrow = 2)
+```
+```{r}
+
+AVsEL <-ggplot(creditData, aes(x=Attrition_Flag, fill=(Education_Level) )) + 
+   geom_bar(position="dodge")+ 
+   geom_text(aes(y = (..count..)/sum(..count..), 
+              label = paste0(round(prop.table(..count..) * 100,2), '%'),
+             angle=45), 
+          stat = 'count', 
+          position = position_dodge(1), 
+          size = 2,
+         vjust=-2)+
+  scale_fill_hue(c = 40) +
+  ggtitle('Distribution of Attrition and Educational')+
+ theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black", size=0.5))+
+ theme(legend.title = element_text(size = 7), 
+               legend.text = element_text(size = 7))  
+
+AVsIC <-ggplot(creditData, aes(x=Attrition_Flag, fill=(Income_Category) )) + 
+   geom_bar(position="dodge")+ 
+   geom_text(aes(y = (..count..)/sum(..count..), 
+              label = paste0(round(prop.table(..count..) * 100,2), '%'),
+             angle=45), 
+          stat = 'count', 
+          position = position_dodge(.9), 
+          size = 2,
+         vjust=-2)+
+  scale_fill_hue(c = 40) +
+  ggtitle('Distribution of Attrition and Income')+
+ theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black", size=0.5))+
+ theme(legend.title = element_text(size = 7), 
+               legend.text = element_text(size = 7))
+ grid.arrange(AVsEL,  AVsIC,nrow = 2)
+```
+
+
+From the above plot both Attired and Existing customers,  Male customers are high. 
+
+```{r}
+
+CL<-creditData %>%
+select(Attrition_Flag,Income_Category,Education_Level)  %>%
+ggplot(aes(x=Attrition_Flag,fill=Education_Level)) +
+geom_bar() +
+facet_wrap(~Income_Category) + 
+labs(title="Distribution of Attrited Customer by Income Category and Education Level "
+   ,y="Count")+  
+  theme(axis.text.x = element_text(angle = 90))+
+ scale_fill_hue(c = 40)+ 
+theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black", size=0.5))+
+ theme(legend.title = element_text(size = 7), 
+               legend.text = element_text(size = 7))
+CL
+
+```
+
+
+Most of the Attired costumers are Female, below the 40k income range and Graduate students.The same can be said by Male costumers, but they are more spread among income ranges.
+
+
+
+## Plots for Numerical Variables
+
+```{r}
+cVsT<-ggplot(creditData,aes(x=Avg_Utilization_Ratio,y=Credit_Limit,col=Attrition_Flag))+
+  geom_point()+
+  ggtitle('Relationship between Credit Limit & Avg Utilization Ratio')+theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black", size=0.5))+
+ theme(legend.title = element_text(size = 7), 
+               legend.text = element_text(size = 7))
+cVsT
+
+
+```
+
+
+                
+                
+From this plot  we can clearly infer that customers with higher credit limit tends to utilize less than customers with lower credit limit. 
+    
+    
+```{r}
+CL<-creditData %>%
+  select(Avg_Open_To_Buy,Attrition_Flag) %>%
+  ggplot(aes(x=Avg_Open_To_Buy,fill=Attrition_Flag)) +
+  geom_density(alpha=0.4) +
+  labs(title="Distribution of Open to Buy Credit Line by Customer type",
+       x="Open to Buy Credit Line ",y="Density")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black", size=0.5))+
+  theme(legend.title = element_text(size = 7), 
+               legend.text = element_text(size = 7))
+CL
+#ggplotly(CL)
+```
+
+## Histogram with age distribution
+```{r}
+
+p <- creditData %>%
+ ggplot( aes(x=Customer_Age)) +
+    geom_histogram( binwidth=3, fill="#f6927d", color="#e9ecef", alpha=0.9) +
+    ggtitle("Distirbution of Customer Age") +
+    geom_vline(aes(xintercept=mean(Customer_Age)),
+            color="blue", linetype="dashed", size=1)+
+    theme(
+      plot.title = element_text(size=10)
+    )+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black", size=0.5))
+p
+```
+
+
+  From the above graph we can confirm that the age of customers follow Normal distribution.
+    
+```{r}
+
+p1 <- creditData %>%
+  select(Total_Trans_Ct,Attrition_Flag) %>%
+  ggplot(aes(x=Total_Trans_Ct,fill=Attrition_Flag)) +
+  geom_bar(alpha=0.4,position="dodge") +
+  labs(title="Distribution of Total Transaction Count by Customer type",
+       x="Total Transaction Count",y="Density")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black", size=0.5))+
+ theme(legend.title = element_text(size = 7), 
+               legend.text = element_text(size = 7))
+
+p2 <- creditData %>%
+  select(Total_Trans_Amt,Attrition_Flag) %>%
+  ggplot(aes(x=Total_Trans_Amt,fill=Attrition_Flag)) +
+  geom_density(alpha=0.4) +
+  labs(title="Distribution of Total Transaction Amount by Customer type",
+       x="Total Transaction Amount",y="Density")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black", size=0.5))+
+ theme(legend.title = element_text(size = 7), 
+               legend.text = element_text(size = 7))
+
+grid.arrange(p1, p2, nrow = 2)
+```
+
+
+From this above density plots we can say that attired customers tend to perform lesser transactions at lower amounts compared to existing customers.
+    
+    
+## Central Limit Theorem
+
+In probability theory, the central limit theorem establishes that, in many situations, when independent random variables are added, their properly normalized sum tends toward a normal distribution even if the original variables themselves are not normally distributed.
+
+Distribution for Credit Limit. 5000 samples for credit Limit are drawn of size 10,20,30,40 and  distribution of the samples are plotted
+
+```{r}
+set.seed(1206)
+samples <- 5000
+xbar <- numeric(samples)
+
+ for (i in 1:samples) {
+    xbar[i] <- mean(sample(creditData$Credit_Limit, size = 10, replace = FALSE))
+   
+  }
+
+p1 <- plot_ly(as.data.frame(xbar), x = ~xbar) %>%
+  add_histogram(name = "Sample Size =10" )
+
+ for (i in 1:samples) {
+    xbar[i] <- mean(sample(creditData$Credit_Limit, size = 20, replace = FALSE))
+ }
+
+ p2 <- plot_ly(as.data.frame(xbar), x = ~xbar) %>%
+  add_histogram(name = "Sample Size =20") 
+
+ for (i in 1:samples) {
+    xbar[i] <- mean(sample(creditData$Credit_Limit, size = 30, replace = FALSE))
+ }
+ p3 <- plot_ly(as.data.frame(xbar), x = ~xbar) %>%
+  add_histogram(name = "Sample Size =30") 
+ for (i in 1:samples) {
+    xbar[i] <- mean(sample(creditData$Credit_Limit, size = 40, replace = FALSE))
+ }
+ p4 <- plot_ly(as.data.frame(xbar), x = ~xbar) %>%
+  add_histogram(name = "Sample Size =40") 
+
+subplot(p1, p2, p3,  p4,
+  nrows = 4, shareX = TRUE
+)
+
+```
+
+
+
+
+```{r}
+ cat( "Population data Mean = " , mean(creditData$Credit_Limit ), " SD = " , sd( creditData$Credit_Limit ), "\n" )
+
+set.seed(1206)
+samples <- 500
+xbar <- numeric(samples)
+
+
+for(size in  c(10,20,30, 40)){
+  for (i in 1:samples) {
+    xbar[i] <- mean(sample(creditData$Credit_Limit, size = size, replace = FALSE))
+  }
+
+  cat( "Sample Size = " , size , " Mean = " , mean( xbar ), " SD = " , sd( xbar ), "\n" )
+}
+
+```
+
+
+The means of the four distributions are relatively similar with each other. But the standard deviation is different for each distribution and decreases with increase in samples.
+
+
+## Sampling Methods
+
+A massive amount of data is generated every day, and we are trying to crunch the data to derive useful information out of it. It is one of the reasons that fueled the growth of Advanced Analytics or Data Science. The machine learning and statistical methods are highly benefited when we supply them with the right volume of data. However, we can develop good models even with reasonable datasets. The trick here is a proper data sampling technique. Simple random sampling without replacement, systematic sampling, and stratified sampling will be utilized as sampling methods.
+
+```{r}
+
+creditData <-creditData %>% drop_na()
+
+ 
+names(sort(table(creditData$Marital_Status), decreasing = TRUE  ) [1:3]) ->martialStatusTop5
+
+martialStatusData <- subset(creditData, Marital_Status %in% martialStatusTop5)
+
+set.seed(1206)
+n <- 50
+N <- nrow(martialStatusData) 
+```
+
+
+### Simple random sampling without replacement for 10 samples
+
+If sampling without replacement is used, the probability of selecting the second member is 1/N-1, etc. The process is repeated until the desired sample size is 
+
+```{r}
+s <- srswor(n, nrow(martialStatusData))
+sample.1 <- martialStatusData[s != 0, ]
+
+#Percentage of respective Department
+Percentage <- (table(sample.1$Marital_Status)/50)*100
+
+ srswor1 <- plot_ly(as.data.frame(sample.1$Credit_Limit ), x = ~sample.1$Credit_Limit) %>%
+  add_histogram(name = "srswor") 
+ mean(sample.1$Credit_Limit)
+
+```
+
+
+### Systematic sampling
+
+In systematic sampling, for selecting a sample of size , the items from the frame are partitioned into groups. Each group has k items, where k= N/n , rounded to the nearest integer. The first item for the sample is randomly selected from the first set of k items in the frame. After the first selection, the remaining items are selected by taking every th n-1 item from the frame.
+
+
+```{r}
+k <- ceiling(N / n)
+
+
+r <- sample(k, 1)
+
+# select every kth item
+s <- seq(r, by = k, length = n)
+sample.2 <- martialStatusData[s, ]
+
+
+
+ sys <- plot_ly(as.data.frame(sample.2$Credit_Limit), x = ~sample.2$Credit_Limit) %>%
+  add_histogram(name = "Systematic Sampling") 
+mean(sample.2$Credit_Limit)
+
+```
+
+### Inclusion Probabilities
+
+For unequal probabilities, the inclusionprobabilities function computes the probability for each item to be included in the sample with probabilities proportional to the size.
+
+```{r}
+
+pik <- inclusionprobabilities(martialStatusData$Credit_Limit,50)
+
+sumPik3 <- sum(pik)
+s <- UPsystematic(pik)
+sample.3 <- martialStatusData[s!=0,]
+table3 <-table(sample.3$Credit_Limit)
+#Percentage of respective Department
+Percentage <- (table(sample.3$Credit_Limit)/50)*100
+ ip <- plot_ly(as.data.frame(sample.3$Credit_Limit), x = ~sample.3$Credit_Limit) %>%
+  add_histogram(name = "Inclusion Probabilities") 
+ mean(sample.3$Credit_Limit)
+ 
+```
+
+### Stratified sampling
+
+In stratifies sampling, the items from the frame are subdivided into separate N subgroups based on some common characteristic, e.g., gender, race, year of school, etc. The subgroups are known as strata
+
+```{r}
+order.index <- order(martialStatusData$Marital_Status)
+data <- martialStatusData[order.index, ]  
+
+freq <- table( martialStatusData$Marital_Status)
+sizes <- round(50 * freq / sum(freq))
+
+sum(sizes)
+st_Martial_status <-  strata(data, stratanames = c("Marital_Status"),
+                         size = sizes, method = "srswor")
+
+sample.4 <-getdata(data,st_Martial_status)
+table4 <-table(sample.4$Education_Level)
+#Percentage of respective Department
+Percentage <- (table(sample.4$Education_Level)/50)*100
+
+ ss <- plot_ly(as.data.frame(sample.4$Credit_Limit), x = ~sample.4$Credit_Limit) %>%
+  add_histogram(name = "Stratified sampling") 
+ mean(sample.4$Credit_Limit)
+ 
+ subplot(srswor1, sys, ip,  ss,
+  nrows = 4, shareX = TRUE
+  
+)
+
+
+
+```
+
+```{r}
+   cat("Population sample mean       : ", mean(creditData$Credit_Limit) ,
+  "\nSimple random  mean    : ",    mean(sample.1$Credit_Limit),
+  "\nSystematic sampling mean          : ", mean(sample.2$Credit_Limit),
+  "\nInclusion Probabilities mean : ", mean(sample.3$Credit_Limit),
+  "\nStratified sampling mean     : ", mean(sample.4$Credit_Limit))
+
+```
+
+
+## Conclusion
+The dataset is imbalanced with 84:16 ratio of existing and attired customers
+ 
+  •	There are more samples of females in dataset compared to males but the percentage of difference is not that significant so we can say that genders are uniformly distributed.
+  
+  •	If assuming that most of the customers with unknown education status lack any sort of education, we can state that more than 70% of the customers have a formal education level of         which about 35% have a higher level of education.
+  
+  •	Almost half of the customers of the bank is married and almost the entire other half are customers who are single. Only about 7% of the customers are divorced.
+
+
+
